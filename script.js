@@ -1,94 +1,118 @@
-const transactionsUl = document.querySelector('#transactions')
-const incomeDisplay = document.querySelector('#money-plus')
-const expenseDisplay = document.querySelector('#money-minus')
-const balanceDisplay = document.querySelector('#balance')
-const form = document.querySelector('#form')
-const inputTransactionName = document.querySelector('#text')
-const inputTransactionAmount = document.querySelector('#amount')
+const transactionsUl = document.querySelector('#transactions');
+const incomeDisplay = document.querySelector('#money-plus');
+const expenseDisplay = document.querySelector('#money-minus');
+const balanceDisplay = document.querySelector('#balance');
+const form = document.querySelector('#form');
+const inputTransactionName = document.querySelector('#text');
+const inputTransactionAmount = document.querySelector('#amount');
 
-const localStorageTransactions = JSON.parse(localStorage.getItem('transactions'))
-let transactions = localStorage.getItem('transaction') !== null ? localStorageTransactions : []
+// URL da API
+const API_URL = "http://localhost:8080/api/v1/transactions";
 
-const removeTransaction = ID =>{
-    transactions = transactions.filter(transaction => id !== ID)
-    updateLocalStorage()
-    init()
-}
+// Busca transações na API e atualiza a interface
+const fetchTransactions = async () => {
+    try {
+        const response = await fetch(API_URL);
+        const transactions = await response.json();
+        updateTransactions(transactions);
+    } catch (error) {
+        console.error("Erro ao buscar transações:", error);
+    }
+};
 
-const addTransactionsIntoDOM = ({amount, name, id}) => {
-    const operator = amount < 0 ? '-' : '+'//se o valor for true e menor que zero, vai armazenar uma string com sinal de subtração-, se for false vai armazenar string soma +
-    const CSSClass = amount < 0 ? 'minus' : 'plus' //mesma coisa da linha acima
-    const amountWithoutOperator = Math.abs(amount) //O método Math.abs() em Java retorna o valor absoluto de um número. Ou seja, ele remove qualquer sinal negativo e retorna sempre um número positivo ou zero.
-    const li = document.createElement('li')
+// Atualiza a lista de transações
+const updateTransactions = (transactions) => {
+    transactionsUl.innerHTML = '';
+    transactions.forEach(addTransactionsIntoDOM);
+    updateBalanceValues(transactions);
+};
 
-    li.classList.add(CSSClass)
+// Remove transação da API
+const removeTransaction = async (id) => {
+    try {
+        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        fetchTransactions();
+    } catch (error) {
+        console.error("Erro ao remover transação:", error);
+    }
+};
+
+// Adiciona transação na interface
+const addTransactionsIntoDOM = ({ amount, name, id }) => {
+    const operator = amount < 0 ? '-' : '+';
+    const CSSClass = amount < 0 ? 'minus' : 'plus';
+    const amountWithoutOperator = Math.abs(amount);
+    const li = document.createElement('li');
+
+    li.classList.add(CSSClass);
     li.innerHTML = `${name} 
     <span>${operator} R$ ${amountWithoutOperator}</span>
-    <button class="delete-btn" inClick="removeTransaction(${id})">x</button>`
-    transactionsUl.append(li)   
-}
+    <button class="delete-btn" onclick="removeTransaction(${id})">x</button>`;
+    transactionsUl.append(li);
+};
 
-const getExpenses = (transactionsAmounts) => Math.abs(transactionsAmounts.filter(value => value < 0).reduce((accumulator, value) => accumulator + value, 0)).toFixed(2)
+// Calcula despesas
+const getExpenses = (transactionsAmounts) => Math.abs(transactionsAmounts.filter(value => value < 0).reduce((acc, value) => acc + value, 0)).toFixed(2);
 
-const getIncome = (transactionsAmounts) => transactionsAmounts.filter(value => value > 0).reduce((accumulator, value) => accumulator + value, 0).toFixed(2)
+// Calcula receitas
+const getIncome = (transactionsAmounts) => transactionsAmounts.filter(value => value > 0).reduce((acc, value) => acc + value, 0).toFixed(2);
 
-const getTotal = (transactionsAmounts) => transactionsAmounts.reduce((accumulator, transaction) => accumulator + transaction, 0).toFixed(2)
+// Calcula saldo total
+const getTotal = (transactionsAmounts) => transactionsAmounts.reduce((acc, transaction) => acc + transaction, 0).toFixed(2);
 
-const updateBalanceValues = () => {
-    const transactionsAmounts = transactions.map(({amount}) => amount) //map() transforma sua array em uma nova, sem modificar a original
-    const total = getTotal(transactionsAmounts)
-    const income = getIncome(transactionsAmounts)
-    const expense = getExpenses(transactionsAmounts)
+// Atualiza os valores de saldo, receitas e despesas
+const updateBalanceValues = (transactions) => {
+    const transactionsAmounts = transactions.map(({ amount }) => amount);
+    const total = getTotal(transactionsAmounts);
+    const income = getIncome(transactionsAmounts);
+    const expense = getExpenses(transactionsAmounts);
 
-    balanceDisplay.textContent = `R$ ${total}`
-    incomeDisplay.textContent = `R$ ${income}`
-    expenseDisplay.textContent = `R$ ${expense}`
-}
+    balanceDisplay.textContent = `R$ ${total}`;
+    incomeDisplay.textContent = `R$ ${income}`;
+    expenseDisplay.textContent = `R$ ${expense}`;
+};
 
-const init = () => {
-    transactionsUl.innerHTML = ''
-    transactions.forEach(addTransactionsIntoDOM)
-    updateBalanceValues()
-}
-
-init()
-
-const updateLocalStorage = () =>{
-    localStorage.setItem('transactions', JSON.stringify(transactions))
-}
-
-const generateId = () => Math.round(Math.random() * 1000) // gera um id aleatorio de 0 a 1000
-
-const addToTransactionsArray = (transactionName, transactionAmount) => {
-    transactions.push({
-        id:generateId(), 
-        name: transactionName, 
+// Envia nova transação para a API
+const addTransactionToAPI = async (transactionName, transactionAmount) => {
+    const transaction = {
+        name: transactionName,
         amount: Number(transactionAmount)
-    })
-}
-
-const cleanInputs = () => {
-    inputTransactionName.value = ''
-    inputTransactionAmount.value = ''
-}
-
-const handleFormSubmit = event => {
-    event.preventDefault()
-
-    const transactionName = inputTransactionName.value.trim()
-    const transactionAmount = inputTransactionAmount.value.trim()
-    const isSomeInputEmpty = transactionName === '' || transactionAmount === ''
-
-    if(isSomeInputEmpty) { //verifica se os campos de entrada  estão vazios ou contêm apenas espaços em branco antes de prosseguir com alguma ação.
-        alert('Por favor, preecha nome e valor da transação!')
-        return        
+    };
+    try {
+        await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(transaction)
+        });
+        fetchTransactions();
+    } catch (error) {
+        console.error("Erro ao adicionar transação:", error);
     }
-    addToTransactionsArray(transactionName, transactionAmount)
-    init()
-    updateLocalStorage()
+};
 
-    cleanInputs()
+// Limpa os campos de entrada
+const cleanInputs = () => {
+    inputTransactionName.value = '';
+    inputTransactionAmount.value = '';
+};
 
-}
+// Manipula o envio do formulário
+const handleFormSubmit = async (event) => {
+    event.preventDefault();
 
-form.addEventListener('submit', handleFormSubmit)
+    const transactionName = inputTransactionName.value.trim();
+    const transactionAmount = inputTransactionAmount.value.trim();
+    const isSomeInputEmpty = transactionName === '' || transactionAmount === '';
+
+    if (isSomeInputEmpty) {
+        alert('Por favor, preencha nome e valor da transação!');
+        return;
+    }
+    await addTransactionToAPI(transactionName, transactionAmount);
+    cleanInputs();
+};
+
+// Inicializa as transações
+fetchTransactions();
+
+form.addEventListener('submit', handleFormSubmit);
