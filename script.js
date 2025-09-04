@@ -23,7 +23,7 @@ const fetchTransactions = async () => {
 // Atualiza a lista de transações
 const updateTransactions = (transactions) => {
     transactionsUl.innerHTML = '';
-    transactions.forEach(addTransactionsIntoDOM);
+    transactions.forEach(transaction => addTransactionsIntoDOM(transaction));
     updateBalanceValues(transactions);
 };
 
@@ -42,12 +42,23 @@ const addTransactionsIntoDOM = ({ amount, name, id }) => {
     const operator = amount < 0 ? '-' : '+';
     const CSSClass = amount < 0 ? 'minus' : 'plus';
     const amountWithoutOperator = Math.abs(amount);
-    const li = document.createElement('li');
 
+    // Cria o elemento li
+    const li = document.createElement('li');
     li.classList.add(CSSClass);
-    li.innerHTML = `${name} 
-    <span>${operator} R$ ${amountWithoutOperator}</span>
-    <button class="delete-btn" onclick="removeTransaction(${id})">x</button>`;
+    
+    // Cria o botão de deletar
+    const deleteButton = document.createElement('button');
+    deleteButton.classList.add('delete-btn');
+    deleteButton.textContent = 'x';
+    
+    // Adiciona o evento de clique ao botão, passando o ID (agora um número)
+    deleteButton.addEventListener('click', () => removeTransaction(id));
+
+    // Define o conteúdo do li e anexa o botão
+    li.innerHTML = `${name} <span>${operator} R$ ${amountWithoutOperator}</span>`;
+    li.appendChild(deleteButton);
+
     transactionsUl.append(li);
 };
 
